@@ -138,6 +138,9 @@ agent = llm.bind_tools(tools)
 class ChatRequest(BaseModel):
     prompt: str
 
+import time
+from github import Github
+
 @app.post("/api/reset-demo")
 async def reset_demo():
     try:
@@ -151,8 +154,8 @@ async def reset_demo():
         g = Github(pat)
         repo = g.get_repo(repo_name)
 
-        # 1. Get main branch SHA
-        main_ref = repo.get_ref("heads/main")
+        # 1. Get main branch SHA (THE FIX IS ON THIS LINE!)
+        main_ref = repo.get_git_ref("heads/main") 
         main_sha = main_ref.object.sha
 
         # 2. Create unique branch
@@ -186,7 +189,7 @@ async def reset_demo():
     except Exception as e:
         return {"status": "error", "message": f"Failed to reset demo: {str(e)}"}
     
-    
+
 @app.post("/api/chat")
 def chat_with_agent(request: ChatRequest, current_user: dict = Depends(verify_token)):
     user_id = current_user.get("sub")

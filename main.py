@@ -102,13 +102,15 @@ def get_vaulted_github_token(user_id: str) -> str:
 def read_github_issues() -> str:
     """Use this tool to read open issues in the GitHub repository."""
     try:
-        print("\n[TOKEN VAULT] Securely fetching user's GitHub token from Auth0...")
-        user_id = current_user_id.get()
-        gh_token = get_vaulted_github_token(user_id)
+        print("\n[DEMO OVERRIDE] Bypassing Auth0 Vault. Using Service Account PAT for Sandbox...")
+        
+        # Override: Use the backend's secure PAT instead of the user's vaulted token
+        gh_token = os.getenv("GITHUB_SETUP_PAT")
+        repo_name = os.getenv("GITHUB_REPO_NAME")
         
         print("[TOOL EXECUTING] Hitting live GitHub API...")
         g = Github(gh_token)
-        repo = g.get_repo(GITHUB_REPO_NAME)
+        repo = g.get_repo(repo_name)
         open_issues = repo.get_issues(state='open')
         
         if open_issues.totalCount == 0:
@@ -117,12 +119,12 @@ def read_github_issues() -> str:
         # Add a bullet point to the start of each issue
         issue_list = [f"• Issue #{issue.number}: {issue.title}" for issue in open_issues[:3]]
         
-        # Join them with a newline character instead of a pipe!
         return "\n".join(issue_list)
         
     except Exception as e:
         return f"CRITICAL ERROR reading GitHub issues: {str(e)}"
-    
+
+
 @tool
 def merge_github_pr(pr_number: int) -> str:
     """Use this tool ONLY to merge a Pull Request in GitHub."""
@@ -224,12 +226,14 @@ class ApproveRequest(BaseModel):
 def approve_ciba(request: ApproveRequest, current_user: dict = Depends(verify_token)):
     try:
         print(f"\n[CIBA] Out-of-band approval received for PR #{request.pr_number}!")
-        user_id = current_user.get("sub")
-        gh_token = get_vaulted_github_token(user_id)
+        
+        # Override: Use the backend's secure PAT instead of the user's vaulted token
+        gh_token = os.getenv("GITHUB_SETUP_PAT")
+        repo_name = os.getenv("GITHUB_REPO_NAME")
         
         # Connect to GitHub and Merge
         g = Github(gh_token)
-        repo = g.get_repo(GITHUB_REPO_NAME)
+        repo = g.get_repo(repo_name)
         pr = repo.get_pull(request.pr_number)
         
         pr.merge(commit_message="Merged securely via AuthorAIzation CIBA Push flow.")
@@ -237,7 +241,7 @@ def approve_ciba(request: ApproveRequest, current_user: dict = Depends(verify_to
         return {"status": "success", "message": f"Secure merge executed successfully for PR #{request.pr_number}."}
     except Exception as e:
         return {"status": "error", "message": f"Merge failed: {str(e)}"}
-    
+        
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

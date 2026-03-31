@@ -124,7 +124,6 @@ def read_github_issues() -> str:
     except Exception as e:
         return f"CRITICAL ERROR reading GitHub issues: {str(e)}"
 
-
 @tool
 def merge_github_pr(pr_number: int) -> str:
     """Use this tool ONLY to merge a Pull Request in GitHub."""

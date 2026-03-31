@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from jose import jwt
 import requests
 import os
-import contextvars # <--- NEW IMPORT
-from github import Github # <--- NEW IMPORT
+import contextvars
+import time
+from github import Github
 
 # --- LANGCHAIN & OPENAI IMPORTS ---
 from langchain_openai import ChatOpenAI
@@ -137,6 +138,55 @@ agent = llm.bind_tools(tools)
 class ChatRequest(BaseModel):
     prompt: str
 
+@app.post("/api/reset-demo")
+async def reset_demo():
+    try:
+        # Grab the setup credentials from the environment
+        pat = os.getenv("GITHUB_SETUP_PAT")
+        repo_name = os.getenv("GITHUB_REPO_NAME")
+        
+        if not pat or not repo_name:
+            return {"status": "error", "message": "Server configuration missing setup credentials."}
+
+        g = Github(pat)
+        repo = g.get_repo(repo_name)
+
+        # 1. Get main branch SHA
+        main_ref = repo.get_ref("heads/main")
+        main_sha = main_ref.object.sha
+
+        # 2. Create unique branch
+        timestamp = int(time.time())
+        branch_name = f"demo-fix-branch-{timestamp}"
+        repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=main_sha)
+
+        # 3. Create dummy file
+        file_path = f"demo_patches/patch_{timestamp}.txt"
+        repo.create_file(
+            path=file_path,
+            message="Simulate database memory leak patch",
+            content="Simulated patch applied to fix memory leak in production database connection pool.",
+            branch=branch_name
+        )
+
+        # 4. Open PR
+        pr = repo.create_pull(
+            title="Fix database memory leak",
+            body="This PR fixes the critical memory leak in the database module. Awaiting secure authorization to merge.",
+            head=branch_name,
+            base="main"
+        )
+
+        return {
+            "status": "success", 
+            "message": f"Demo primed! PR #{pr.number} is staged and ready.", 
+            "pr_number": pr.number
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to reset demo: {str(e)}"}
+    
+    
 @app.post("/api/chat")
 def chat_with_agent(request: ChatRequest, current_user: dict = Depends(verify_token)):
     user_id = current_user.get("sub")

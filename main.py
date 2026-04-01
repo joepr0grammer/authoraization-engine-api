@@ -239,15 +239,21 @@ def chat_with_agent(request: ChatRequest, current_user: dict = Depends(verify_to
         
         if tool_name == "read_github_issues":
             live_data = read_github_issues.invoke({})
-            return {"status": "success", "message": "Agent securely read live GitHub issues via Auth0 Token Vault.", "data": live_data}
+            return {"status": "success", "message": "Agent securely read live GitHub issues.", "data": live_data}
+            
+        # 🚀 THIS IS THE BRAND NEW BLOCK WE WERE MISSING 🚀
+        elif tool_name == "read_github_prs":
+            live_data = read_github_prs.invoke({})
+            return {"status": "success", "message": "Agent securely read live GitHub Pull Requests.", "data": live_data}
             
         elif tool_name == "merge_github_pr":
             pr_num = tool_call["args"].get("pr_number")
             return {
                 "status": "pending_ciba", 
-                "pr_number": pr_num, # <--- ADD THIS SO NEXT.JS KNOWS WHICH PR TO MERGE
+                "pr_number": pr_num, 
                 "message": f"High-Stakes Action Detected! Intercepting merge request for PR #{pr_num}. Initiating Auth0 Push Notification to human..."
             }            
+            
     return {"status": "success", "message": response.content}
 
 class ApproveRequest(BaseModel):

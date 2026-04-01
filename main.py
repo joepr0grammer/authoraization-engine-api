@@ -131,13 +131,38 @@ def read_github_issues() -> str:
     except Exception as e:
         return f"CRITICAL ERROR reading GitHub issues: {str(e)}"
         
+
+@tool
+def read_github_prs() -> str:
+    """Use this tool to read open Pull Requests (PRs) in the GitHub repository."""
+    try:
+        print("\n[DEMO OVERRIDE] Bypassing Auth0 Vault. Reading PRs via Service Account...")
+        gh_token = os.getenv("GITHUB_SETUP_PAT")
+        repo_name = os.getenv("GITHUB_REPO_NAME")
+        
+        g = Github(gh_token)
+        repo = g.get_repo(repo_name)
+        
+        # Explicitly fetch Pull Requests, not Issues
+        open_prs = repo.get_pulls(state='open')
+        
+        if open_prs.totalCount == 0:
+            return "There are currently no open Pull Requests in the repository."
+        
+        pr_list = [f"• PR #{pr.number}: {pr.title}" for pr in open_prs]
+        return "\n".join(pr_list)
+        
+    except Exception as e:
+        return f"CRITICAL ERROR reading GitHub PRs: {str(e)}"
+    
+
 @tool
 def merge_github_pr(pr_number: int) -> str:
     """Use this tool ONLY to merge a Pull Request in GitHub."""
     return f"ACTION_BLOCKED_PENDING_APPROVAL_FOR_PR_{pr_number}"
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-tools = [read_github_issues, merge_github_pr]
+tools = [read_github_issues, read_github_prs, merge_github_pr]
 agent = llm.bind_tools(tools)
 
 # ==========================================

@@ -104,31 +104,33 @@ def read_github_issues() -> str:
     try:
         print("\n[DEMO OVERRIDE] Bypassing Auth0 Vault. Using Service Account PAT for Sandbox...")
         
-        # Override: Use the backend's secure PAT instead of the user's vaulted token
         gh_token = os.getenv("GITHUB_SETUP_PAT")
         repo_name = os.getenv("GITHUB_REPO_NAME")
         
-        print("[TOOL EXECUTING] Hitting live GitHub API...")
         g = Github(gh_token)
         repo = g.get_repo(repo_name)
         
-        # GitHub's API returns both Issues and PRs here
+        # 🐛 DEBUG LOG 1: What is PyGithub actually returning?
         all_open_items = repo.get_issues(state='open')
+        print(f"[DEBUG GITHUB API] Raw items found (Issues + PRs): {all_open_items.totalCount}")
         
-        # Filter out the Pull Requests so we ONLY have true issues
+        # Filter out the Pull Requests
         real_issues = [issue for issue in all_open_items if issue.pull_request is None]
+        
+        # 🐛 DEBUG LOG 2: After filtering, how many true issues are left?
+        print(f"[DEBUG GITHUB API] True Issues found (Excluding PRs): {len(real_issues)}")
         
         if len(real_issues) == 0:
             return "There are currently no open true issues (excluding PRs) in the repository."
         
-        # Format the list (The [:3] limit has been removed!)
+        # Format the list (CONFIRM THERE IS NO [:3] LIMIT HERE!)
         issue_list = [f"• Issue #{issue.number}: {issue.title}" for issue in real_issues]
         
         return "\n".join(issue_list)
         
     except Exception as e:
         return f"CRITICAL ERROR reading GitHub issues: {str(e)}"
-    
+        
 @tool
 def merge_github_pr(pr_number: int) -> str:
     """Use this tool ONLY to merge a Pull Request in GitHub."""

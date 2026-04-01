@@ -111,19 +111,24 @@ def read_github_issues() -> str:
         print("[TOOL EXECUTING] Hitting live GitHub API...")
         g = Github(gh_token)
         repo = g.get_repo(repo_name)
-        open_issues = repo.get_issues(state='open')
         
-        if open_issues.totalCount == 0:
-            return "There are currently no open issues in the repository."
+        # GitHub's API returns both Issues and PRs here
+        all_open_items = repo.get_issues(state='open')
         
-        # Add a bullet point to the start of each issue
-        issue_list = [f"• Issue #{issue.number}: {issue.title}" for issue in open_issues[:3]]
+        # Filter out the Pull Requests so we ONLY have true issues
+        real_issues = [issue for issue in all_open_items if issue.pull_request is None]
+        
+        if len(real_issues) == 0:
+            return "There are currently no open true issues (excluding PRs) in the repository."
+        
+        # Format the list (The [:3] limit has been removed!)
+        issue_list = [f"• Issue #{issue.number}: {issue.title}" for issue in real_issues]
         
         return "\n".join(issue_list)
         
     except Exception as e:
         return f"CRITICAL ERROR reading GitHub issues: {str(e)}"
-
+    
 @tool
 def merge_github_pr(pr_number: int) -> str:
     """Use this tool ONLY to merge a Pull Request in GitHub."""

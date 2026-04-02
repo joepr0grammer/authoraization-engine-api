@@ -72,29 +72,37 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         raise HTTPException(status_code=401, detail=str(e))
     raise HTTPException(status_code=401, detail="Invalid token")
 
-def get_vaulted_github_token(user_id: str) -> str:
-    """The Keymaster: Securely retrieves the GitHub PAT from Auth0"""
-    # 1. Get an access token for the Auth0 Management API
-    token_url = f"https://{AUTH0_DOMAIN}/oauth/token"
-    payload = {
-        "client_id": M2M_CLIENT_ID,
-        "client_secret": M2M_CLIENT_SECRET,
-        "audience": f"https://{AUTH0_DOMAIN}/api/v2/",
-        "grant_type": "client_credentials"
-    }
-    mgmt_token = requests.post(token_url, json=payload).json().get("access_token")
+def get_smart_github_token(user_id: str) -> str:
+    """The Keymaster: Automatically routes between the real Auth0 Vault and the Sandbox."""
+    try:
+        # 1. Get an access token for the Auth0 Management API
+        token_url = f"https://{AUTH0_DOMAIN}/oauth/token"
+        payload = {
+            "client_id": M2M_CLIENT_ID,
+            "client_secret": M2M_CLIENT_SECRET,
+            "audience": f"https://{AUTH0_DOMAIN}/api/v2/",
+            "grant_type": "client_credentials"
+        }
+        mgmt_token = requests.post(token_url, json=payload).json().get("access_token")
 
-    # 2. Fetch the User's Profile (which contains the vaulted tokens)
-    user_url = f"https://{AUTH0_DOMAIN}/api/v2/users/{user_id}"
-    user_data = requests.get(user_url, headers={"Authorization": f"Bearer {mgmt_token}"}).json()
+        # 2. Fetch the User's Profile
+        user_url = f"https://{AUTH0_DOMAIN}/api/v2/users/{user_id}"
+        user_data = requests.get(user_url, headers={"Authorization": f"Bearer {mgmt_token}"}).json()
 
-    # 3. Dig through their identities to find the GitHub token
-    for identity in user_data.get("identities", []):
-        if identity.get("provider") == "github":
-            return identity.get("access_token")
-            
-    raise Exception("No vaulted GitHub token found for this user!")
+        # 3. Check for a real GitHub token in the vault
+        for identity in user_data.get("identities", []):
+            if identity.get("provider") == "github":
+                print("\n[AUTH0 VAULT] Live GitHub token successfully extracted from Identity Provider!")
+                return identity.get("access_token")
+                
+        # 4. If no GitHub token (like the judge@ account), use the Sandbox PAT
+        print("\n[SANDBOX OVERRIDE] Demo account detected. Bypassing Vault to use Service Account PAT.")
+        return os.getenv("GITHUB_SETUP_PAT")
 
+    except Exception as e:
+        print(f"Token fetch error: {str(e)}")
+        return os.getenv("GITHUB_SETUP_PAT")
+    
 # ==========================================
 # 3. THE LIVE AI TOOLS
 # ==========================================
@@ -104,9 +112,11 @@ def read_github_issues() -> str:
     try:
         print("\n[DEMO OVERRIDE] Bypassing Auth0 Vault. Using Service Account PAT for Sandbox...")
         
-        gh_token = os.getenv("GITHUB_SETUP_PAT")
+# Let the Smart Vault decide which token to use
+        user_id = current_user_id.get()
+        gh_token = get_smart_github_token(user_id)
         repo_name = os.getenv("GITHUB_REPO_NAME")
-        
+
         g = Github(gh_token)
         repo = g.get_repo(repo_name)
         
@@ -136,10 +146,11 @@ def read_github_issues() -> str:
 def read_github_prs() -> str:
     """Use this tool to read open Pull Requests (PRs) in the GitHub repository."""
     try:
-        print("\n[DEMO OVERRIDE] Bypassing Auth0 Vault. Reading PRs via Service Account...")
-        gh_token = os.getenv("GITHUB_SETUP_PAT")
+# Let the Smart Vault decide which token to use
+        user_id = current_user_id.get()
+        gh_token = get_smart_github_token(user_id)
         repo_name = os.getenv("GITHUB_REPO_NAME")
-        
+
         g = Github(gh_token)
         repo = g.get_repo(repo_name)
         
@@ -264,10 +275,11 @@ def approve_ciba(request: ApproveRequest, current_user: dict = Depends(verify_to
     try:
         print(f"\n[CIBA] Out-of-band approval received for PR #{request.pr_number}!")
         
-        # Override: Use the backend's secure PAT instead of the user's vaulted token
-        gh_token = os.getenv("GITHUB_SETUP_PAT")
+# Let the Smart Vault decide which token to use
+        user_id = current_user.get("sub")
+        gh_token = get_smart_github_token(user_id)
         repo_name = os.getenv("GITHUB_REPO_NAME")
-        
+                
         # Connect to GitHub and Merge
         g = Github(gh_token)
         repo = g.get_repo(repo_name)

@@ -23,7 +23,7 @@ Before you begin, ensure you have the following installed:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/joepr0grammer/authoraization-backend.git](https://github.com/joepr0grammer/authoraization-backend.git)
+   git clone https://github.com/joepr0grammer/authoraization-backend.git
    cd authoraization-backend
 2. **Create and activate a virtual environment:**
     ```bash

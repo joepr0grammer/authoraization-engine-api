@@ -54,7 +54,6 @@ current_user_id = contextvars.ContextVar("current_user_id")
 # 2. THE BOUNCER & THE VAULT FETCHER
 # ==========================================
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
-    # ... (Keep your exact existing verify_token code here) ...
     token = credentials.credentials
     try:
         jwks_url = f'https://{AUTH0_DOMAIN}/.well-known/jwks.json'
@@ -120,20 +119,20 @@ def read_github_issues() -> str:
         g = Github(gh_token)
         repo = g.get_repo(repo_name)
         
-        # 🐛 DEBUG LOG 1: What is PyGithub actually returning?
+        # DEBUG LOG 1: What is PyGithub actually returning?
         all_open_items = repo.get_issues(state='open')
         print(f"[DEBUG GITHUB API] Raw items found (Issues + PRs): {all_open_items.totalCount}")
         
         # Filter out the Pull Requests
         real_issues = [issue for issue in all_open_items if issue.pull_request is None]
         
-        # 🐛 DEBUG LOG 2: After filtering, how many true issues are left?
+        # DEBUG LOG 2: After filtering, how many true issues are left?
         print(f"[DEBUG GITHUB API] True Issues found (Excluding PRs): {len(real_issues)}")
         
         if len(real_issues) == 0:
             return "There are currently no open true issues (excluding PRs) in the repository."
         
-        # Format the list (CONFIRM THERE IS NO [:3] LIMIT HERE!)
+        # Format the list
         issue_list = [f"• Issue #{issue.number}: {issue.title}" for issue in real_issues]
         
         return "\n".join(issue_list)
@@ -198,7 +197,7 @@ async def reset_demo():
         g = Github(pat)
         repo = g.get_repo(repo_name)
 
-        # 1. Get main branch SHA (THE FIX IS ON THIS LINE!)
+        # 1. Get main branch SHA 
         main_ref = repo.get_git_ref("heads/main") 
         main_sha = main_ref.object.sha
 
@@ -252,7 +251,6 @@ def chat_with_agent(request: ChatRequest, current_user: dict = Depends(verify_to
             live_data = read_github_issues.invoke({})
             return {"status": "success", "message": "Agent securely read live GitHub issues.", "data": live_data}
             
-        # 🚀 THIS IS THE BRAND NEW BLOCK WE WERE MISSING 🚀
         elif tool_name == "read_github_prs":
             live_data = read_github_prs.invoke({})
             return {"status": "success", "message": "Agent securely read live GitHub Pull Requests.", "data": live_data}
